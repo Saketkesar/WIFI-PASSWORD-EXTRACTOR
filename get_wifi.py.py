@@ -1,24 +1,30 @@
-    
 import subprocess
 import re
-command_output = subprocess.run(["netsh", "wlan", "show", "profiles"], capture_output = True).stdout.decode()
-profile_names = (re.findall("All User Profile     : (.*)\r", command_output))
+
+# Summoning all saved WiFi profiles
+command_output = subprocess.run(["netsh", "wlan", "show", "profiles"], capture_output=True).stdout.decode()
+profile_names = re.findall("All User Profile     : (.*)\r", command_output)
+
 wifi_list = []
-if len(profile_names) != 0:
+
+if profile_names:
     for name in profile_names:
         wifi_profile = {}
-        profile_info = subprocess.run(["netsh", "wlan", "show", "profile", name], capture_output = True).stdout.decode()
-        if re.search("Security key           : Absent", profile_info):
+        profile_info = subprocess.run(["netsh", "wlan", "show", "profile", name], capture_output=True).stdout.decode()
+        
+        # Skip open networks
+        if "Security key           : Absent" in profile_info:
             continue
-        else:
-            wifi_profile["ssid"] = name
-            profile_info_pass = subprocess.run(["netsh", "wlan", "show", "profile", name, "key=clear"], capture_output = True).stdout.decode()
-            password = re.search("Key Content            : (.*)\r", profile_info_pass)
-            if password == None:
-                wifi_profile["password"] = None
-            else:
-                wifi_profile["password"] = password
-            wifi_list.append(wifi_profile) 
+        
+        wifi_profile["ssid"] = name
+        
+        # Dig deeper (with key=clear) to expose passwords
+        profile_info_pass = subprocess.run(["netsh", "wlan", "show", "profile", name, "key=clear"], capture_output=True).stdout.decode()
+        password = re.search("Key Content            : (.*)\r", profile_info_pass)
+        
+        wifi_profile["password"] = password.group(1) if password else None
+        wifi_list.append(wifi_profile)
 
-for x in range(len(wifi_list)):
-    print(wifi_list[x]) 
+# Print results and rethink your life
+for wifi in wifi_list:
+    print(wifi)
